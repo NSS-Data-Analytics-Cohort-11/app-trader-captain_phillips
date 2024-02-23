@@ -100,7 +100,7 @@ ON a.name = p.name
 WHERE ((a.rating + p.rating) / 2) >= 4
 ORDER BY avg_rating DESC;
 
--- 		top: name, avg_rating, price, life_span, cost, marketing cost
+/* ********** FINAL QUERY ********** */
 SELECT sub.name,
 		sub.profit,
 		ROUND(AVG(sub.total_reviews), 0) AS total_reviews_avg
@@ -135,4 +135,5 @@ FROM
 	ORDER BY profit DESC, app_price DESC) AS sub
 
 GROUP BY sub.name, sub.profit
-ORDER BY sub.profit DESC, total_reviews_avg DESC;
+ORDER BY sub.profit DESC, total_reviews_avg DESC
+LIMIT 10;
