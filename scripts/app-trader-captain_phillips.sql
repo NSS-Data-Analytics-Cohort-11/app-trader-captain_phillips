@@ -103,7 +103,7 @@ ORDER BY avg_rating DESC;
 /* ********** FINAL QUERY ********** */
 SELECT sub.name,
 		sub.profit,
-		ROUND(AVG(sub.total_reviews), 0) AS total_reviews_avg
+		ROUND(AVG(sub.total_reviews), 0) AS total_reviews
 FROM
 -- 		SUBQUERY
 	(SELECT DISTINCT a.name, /* app name */
@@ -135,5 +135,5 @@ FROM
 	ORDER BY profit DESC, app_price DESC) AS sub
 
 GROUP BY sub.name, sub.profit
-ORDER BY sub.profit DESC, total_reviews_avg DESC
+ORDER BY sub.profit DESC, total_reviews DESC
 LIMIT 10;
