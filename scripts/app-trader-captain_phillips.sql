@@ -153,7 +153,7 @@ SELECT  /* NAME */
 		
 		/* APP COST */
 		CASE WHEN app_price <= 1::MONEY THEN 10000::MONEY
-			ELSE (app_price * 10000)::MONEY END AS app_cost,
+			ELSE app_price * 10000 END AS app_cost,
 			
 		/* MARKETING COST */
 		(lifespan * 12000)::MONEY AS total_marketing_cost,
@@ -161,11 +161,11 @@ SELECT  /* NAME */
 		/* EARNINGS */
 		(lifespan * 120000)::MONEY AS total_earnings,
 		
-		/* PROFIT */
-		((lifespan * 120000)::MONEY) /* earnings */ -
-			((lifespan * 12000)::MONEY) /* minus marketing cost */ - 
-			(CASE WHEN app_price <= 1::MONEY THEN 10000::MONEY
-				ELSE (app_price * 10000)::MONEY END) /* minus app_cost */ AS profit,
+		/* PROFIT */		                 
+			/* earnings */ (lifespan * 120000::MONEY)
+			- /* marketing cost */ (lifespan * 12000::MONEY)
+			- /* app cost */ (CASE WHEN app_price <= 1::MONEY THEN 10000::MONEY
+								ELSE app_price * 10000 END) AS profit,
 		
 		/* TOTAL AMOUNT OF REVIEWS */
 		ROUND(AVG(total_reviews), 0) AS total_reviews
