@@ -8,16 +8,6 @@ SELECT *
 FROM play_store_apps
 LIMIT 5;
 
--- count of apps per category - app store
-SELECT COUNT(rating), primary_genre
-FROM app_store_apps
-GROUP BY primary_genre;
-
--- count of apps per category - app store
-SELECT COUNT(rating), category
-FROM play_store_apps
-GROUP BY category;
-
 -- app store over 4 star
 SELECT rating
 FROM app_store_apps
@@ -42,27 +32,13 @@ WHERE name IN (SELECT name
 			  	WHERE rating >=4)
 -- 		247!
 
--- PLAY store has duplicates titles
+-- PLAY store has duplicate titles
 SELECT *
 FROM play_store_apps
 WHERE name IN (SELECT DISTINCT name
 					FROM play_store_apps)
 ORDER BY name;
-
-
--- app store review count to integer
-SELECT CAST(review_count AS integer)
-FROM app_store_apps
-
-SELECT DISTINCT name
-FROM play_store_apps
-WHERE name IN (SELECT name, rating
-				FROM app_store_apps
-					INTERSECT
-				SELECT name, rating
-				FROM play_store_apps)
-				
-
+ABSOLUTE
 
 -- 
 SELECT name, size_bytes, currency, price, CAST(review_count AS integer) AS review_count, rating, content_rating, primary_genre
@@ -121,7 +97,7 @@ FROM
 
 					(((ROUND(ROUND((a.rating + p.rating) / 2 * 2, 0) / 2.0, 1) * 2) + 1) * 120000)::MONEY AS total_earnings, /* earnings from adds and in-app purchases */
 
-					((((ROUND(ROUND((a.rating + p.rating) / 2 * 2, 0) / 2.0, 1) * 2) + 1) * 120000)::MONEY) /* profit */ -
+					((((ROUND(ROUND((a.rating + p.rating) / 2 * 2, 0) / 2.0, 1) * 2) + 1) * 120000)::MONEY) /* earnings */ -
 					((((ROUND(ROUND((a.rating + p.rating) / 2 * 2, 0) / 2.0, 1) * 2) + 1) * 12000)::MONEY) /* minus marketing cost */ - 
 					(CASE WHEN GREATEST(a.price::MONEY, p.price::MONEY) <= 1::MONEY THEN 10000::MONEY
 						ELSE (GREATEST(a.price::MONEY, p.price::MONEY) * 10000)::MONEY END) /* minus app_cost */ AS profit, /* profit = earnings - marketing cost - app cost */
@@ -136,4 +112,65 @@ FROM
 
 GROUP BY sub.name, sub.profit
 ORDER BY sub.profit DESC, total_reviews DESC
+LIMIT 10;
+
+/*********************************************************************/
+/* ************************** USING CTEs *************************** */
+/*********************************************************************/
+
+/* NAME, AVERAGE RATING, LIFESPAN, APP PRICE, TOTAL_REVIEWS */
+WITH rating_price AS 
+		(SELECT DISTINCT UPPER(a.name) AS name,
+		 
+				/* average rating between stores rounded to .5 */
+				ROUND(ROUND((a.rating + p.rating) / 2 * 2, 0) / 2.0, 1) AS avg_rating,
+		 
+		 		/* lifespan in years. Take AVG rating times 2 and add 1 */
+		 		(ROUND(ROUND((a.rating + p.rating) / 2 * 2, 0) / 2.0, 1) * 2) + 1 AS lifespan,
+
+				/* get app price that is the highest between the 2 stores */
+				GREATEST(a.price::MONEY, p.price::MONEY) AS app_price,
+		 		
+		 		/* TOTAL REVIEWS */
+		 		a.review_count::INTEGER + p.review_count AS total_reviews
+
+		FROM app_store_apps AS a
+		INNER JOIN play_store_apps AS p
+		ON a.name = p.name
+		WHERE ROUND(ROUND((a.rating + p.rating) / 2 * 2, 0) / 2.0, 1) >= 4.5)
+		
+SELECT  /* NAME */
+		name,
+		
+		/* AVERAGE RATING */
+		avg_rating,
+		
+		/* LIFESPAN IN YEARS */
+		lifespan,
+		
+		/* APP PRICE */
+		app_price,
+		
+		/* APP COST */
+		CASE WHEN app_price <= 1::MONEY THEN 10000::MONEY
+			ELSE (app_price * 10000)::MONEY END AS app_cost,
+			
+		/* MARKETING COST */
+		(lifespan * 12000)::MONEY AS total_marketing_cost,
+		
+		/* EARNINGS */
+		(lifespan * 120000)::MONEY AS total_earnings,
+		
+		/* PROFIT */
+		((lifespan * 120000)::MONEY) /* earnings */ -
+			((lifespan * 12000)::MONEY) /* minus marketing cost */ - 
+			(CASE WHEN app_price <= 1::MONEY THEN 10000::MONEY
+				ELSE (app_price * 10000)::MONEY END) /* minus app_cost */ AS profit,
+		
+		/* TOTAL AMOUNT OF REVIEWS */
+		ROUND(AVG(total_reviews), 0) AS total_reviews
+		
+FROM rating_price
+GROUP BY name, avg_rating, lifespan, app_price
+ORDER BY profit DESC, total_reviews DESC
 LIMIT 10;
