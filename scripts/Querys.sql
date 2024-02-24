@@ -1,16 +1,23 @@
-SELECT *
-FROM 
+SELECT DISTINCT UPPER(name) AS app_name
+FROM play_store_apps
+ORDER BY app_name
 ------- BUILDING CTEs ----------
 --Play store costs
 WITH playstore AS
 (SELECT
-	name,
-	p.rating,
+	UPPER(name) AS name,
+	AVG(p.rating),
 --- Convert Play store price to Money
-	CAST(p.price AS MONEY) AS app_price,
-		CASE WHEN p.price::MONEY <= 1::MONEY THEN 10000::MONEY
-		ELSE (CAST(p.price AS MONEY) * 10000) END AS app_cost
-FROM play_store_apps AS p),
+	CAST(MAX(p.price) AS MONEY) AS app_price,
+-- 		CASE WHEN p.price::MONEY <= 1::MONEY THEN 10000::MONEY
+-- 		ELSE (CAST(p.price AS MONEY) * 10000) END AS app_cost,
+ 	AVG(review_count)
+FROM play_store_apps AS p
+INNER JOIN
+ 	(SELECT DISTINCT UPPER(name) AS app_name
+	 FROM play_store_apps) as clean_names
+GROUP BY name /*,app_cost*/
+ORDER BY name),
 
 -- Apple Store Costs
 appstore AS
@@ -79,3 +86,42 @@ ORDER BY profit DESC, app_price DESC) AS subquery
 GROUP BY subquery.name, subquery.profit
 ORDER BY subquery.profit DESC, total_reviews DESC
 LIMIT 10;
+
+--***********************NEW CTE************************--
+
+WITH stores AS
+(SELECT
+	a.name AS app_name,
+	ROUND(ROUND((a.rating + p.rating) / 2 * 2, 0) / 2.0, 1) AS avg_rating,		--averaging the rating between both stores
+	GREATEST(a.price::MONEY, p.price::MONEY) AS app_price,						--taking the largest spp price between stores
+	(a.review_count::INTEGER + p.review_count) as total_reviews,				--combining review counts from both stores
+ 	(ROUND(ROUND((a.rating + p.rating) / 2 * 2, 0) / 2.0, 1)*2)+1 AS lifespan	--lifespan = (avg_rating * 2)+1
+	
+FROM app_store_apps AS a
+INNER JOIN play_store_apps AS p
+USING (name)
+WHERE ROUND(ROUND((a.rating + p.rating) / 2 * 2, 0) / 2.0, 1) >= 4.5)			--filter for apps with an avg_rating of 4.5 or higher
+
+
+SELECT
+	app_name,
+	avg_rating,
+	app_price,
+	lifespan,
+	lifespan * 120000::MONEY AS total_revenue,
+	lifespan * 12000::MONEY AS total_marketing_cost,
+	CASE
+		WHEN app_price <= 1::MONEY THEN 10000::MONEY
+		ELSE app_price * 10000 END AS app_cost,
+	(lifespan * 120000::MONEY) -    					--Total Revenue---
+	(lifespan * 12000::MONEY) -     					--Marketing Cost--
+	(CASE												------------------
+		WHEN app_price <= 1::MONEY THEN 10000::MONEY	--App Cost--------
+		ELSE app_price * 10000 END)						------------------
+	AS total_profit,
+	ROUND(AVG(total_reviews),2) AS total_reviews
+	
+FROM stores
+GROUP BY app_name, avg_rating, app_price, lifespan
+ORDER BY total_profit DESC, total_reviews DESC
+LIMIT 10
